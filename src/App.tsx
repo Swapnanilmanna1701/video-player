@@ -136,7 +136,7 @@ function App() {
 
   return (
     <PlayerContext.Provider value={contextValue}>
-      <div className="h-full w-full bg-dark-950 relative overflow-hidden">
+        <div className="h-full w-full bg-yt-black relative overflow-hidden">
         {/* Hidden persistent video element — shared across player views */}
         <video
           ref={videoRef}
