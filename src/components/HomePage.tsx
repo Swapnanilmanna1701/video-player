@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getCategories, getAllVideos } from '../data/videos';
 import { usePlayer } from '../store/playerStore';
 import VideoCard from './VideoCard';
+import type { CategoryGroup } from '../types';
 
 const CATEGORY_COLORS: Record<string, string> = {
   'social-media-ai': 'from-purple to-blue',
@@ -15,10 +16,56 @@ export default function HomePage() {
   const categories = useMemo(() => getCategories(), []);
   const totalVideos = useMemo(() => getAllVideos().length, []);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const filteredCategories = activeFilter
-    ? categories.filter((g) => g.category.slug === activeFilter)
-    : categories;
+  // Focus search input when search bar opens
+  useEffect(() => {
+    if (isSearchOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isSearchOpen]);
+
+  const toggleSearch = useCallback(() => {
+    setIsSearchOpen((prev) => {
+      if (prev) {
+        // Closing search — clear query
+        setSearchQuery('');
+      }
+      return !prev;
+    });
+  }, []);
+
+  // Filter by category chip first, then by search query within each category
+  const filteredCategories = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    // Step 1: filter by category
+    let result: CategoryGroup[] = activeFilter
+      ? categories.filter((g) => g.category.slug === activeFilter)
+      : categories;
+
+    // Step 2: filter videos within each category by search query
+    if (query) {
+      result = result
+        .map((group) => ({
+          ...group,
+          contents: group.contents.filter((video) =>
+            video.title.toLowerCase().includes(query)
+          ),
+        }))
+        .filter((group) => group.contents.length > 0);
+    }
+
+    return result;
+  }, [categories, activeFilter, searchQuery]);
+
+  // Count total visible videos for the "no results" state
+  const visibleVideoCount = useMemo(
+    () => filteredCategories.reduce((sum, g) => sum + g.contents.length, 0),
+    [filteredCategories]
+  );
 
   return (
     <div
@@ -53,11 +100,46 @@ export default function HomePage() {
             </div>
 
             {/* Search / action area */}
-            <button className="w-10 h-10 rounded-xl glass flex items-center justify-center hover:bg-white/[0.08] transition-all active:scale-90">
-              <svg className="w-[18px] h-[18px] text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-2">
+              <AnimatePresence>
+                {isSearchOpen && (
+                  <motion.div
+                    initial={{ width: 0, opacity: 0 }}
+                    animate={{ width: 200, opacity: 1 }}
+                    exit={{ width: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search videos..."
+                      className="w-full h-10 px-3 rounded-xl bg-white/[0.08] border border-white/[0.08] text-sm text-white placeholder-white/30 outline-none focus:border-accent/50 focus:bg-white/[0.1] transition-all"
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <button
+                onClick={toggleSearch}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-90 flex-shrink-0 ${
+                  isSearchOpen
+                    ? 'bg-white/[0.1] text-white'
+                    : 'glass text-white/50 hover:bg-white/[0.08]'
+                }`}
+              >
+                {isSearchOpen ? (
+                  <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Category filter chips */}
@@ -91,7 +173,7 @@ export default function HomePage() {
       </header>
 
       {/* ── Featured Hero Banner ── */}
-      {!activeFilter && (
+      {!activeFilter && !searchQuery.trim() && (
         <div className="max-w-7xl mx-auto px-5 pt-5 pb-2">
           <motion.div
             className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-accent/20 via-dark-800 to-purple/20 p-6 sm:p-8 border border-white/[0.06]"
@@ -133,6 +215,37 @@ export default function HomePage() {
 
       {/* ── Category Sections ── */}
       <main className="max-w-7xl mx-auto px-5 py-5">
+        {/* Search results header */}
+        {searchQuery.trim() && (
+          <div className="mb-5">
+            <p className="text-sm text-white/50">
+              {visibleVideoCount > 0
+                ? `Found ${visibleVideoCount} result${visibleVideoCount !== 1 ? 's' : ''} for "${searchQuery.trim()}"`
+                : null}
+            </p>
+          </div>
+        )}
+
+        {/* No results state */}
+        {visibleVideoCount === 0 && (
+          <motion.div
+            className="flex flex-col items-center justify-center py-20 text-center"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <svg className="w-16 h-16 text-white/10 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <p className="text-white/40 text-base font-medium mb-1">No videos found</p>
+            <p className="text-white/20 text-sm">
+              {searchQuery.trim()
+                ? `No results for "${searchQuery.trim()}". Try a different search term.`
+                : 'No videos match the selected filter.'}
+            </p>
+          </motion.div>
+        )}
+
         <AnimatePresence mode="wait">
           {filteredCategories.map((group, groupIdx) => (
             <motion.section
