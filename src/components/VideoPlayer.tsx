@@ -2,12 +2,16 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
 import { usePlayer } from '../store/playerStore';
-import { getYoutubeEmbedUrl, getVideosByCategory, getNextVideo } from '../data/videos';
+import { getVideosByCategory, getNextVideo, formatTime } from '../data/videos';
 import type { Video } from '../types';
 import VideoCard from './VideoCard';
 
 export default function VideoPlayer() {
-  const { currentVideo, minimizePlayer, closePlayer, playVideo } = usePlayer();
+  const {
+    currentVideo, isPlaying, videoRef, currentTime, duration, buffered,
+    minimizePlayer, closePlayer, playVideo, togglePlayPause, seekTo, skipForward, skipBackward,
+  } = usePlayer();
+
   const [showControls, setShowControls] = useState(true);
   const [showRelatedList, setShowRelatedList] = useState(false);
   const [skipFeedback, setSkipFeedback] = useState<'forward' | 'backward' | null>(null);
@@ -15,16 +19,49 @@ export default function VideoPlayer() {
   const [autoplayCountdown, setAutoplayCountdown] = useState(5);
   const [nextVideo, setNextVideo] = useState<Video | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isSeeking, setIsSeeking] = useState(false);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval>>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
 
   const relatedVideos = currentVideo
     ? getVideosByCategory(currentVideo.categorySlug).filter((v) => v.slug !== currentVideo.slug)
     : [];
 
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const bufferedProgress = duration > 0 ? (buffered / duration) * 100 : 0;
+
+  // Auto-play: load video src and start playing when video changes
+  useEffect(() => {
+    const vid = videoRef.current;
+    if (!vid || !currentVideo) return;
+    vid.src = currentVideo.mp4Url;
+    vid.load();
+    vid.play().catch(() => {});
+  }, [currentVideo, videoRef]);
+
+  // Move the hidden video into our visible container so it renders on screen
+  useEffect(() => {
+    const vid = videoRef.current;
+    const container = videoContainerRef.current;
+    if (!vid || !container) return;
+
+    // Style and move the video into the player container
+    vid.className = 'w-full h-full object-contain';
+    vid.style.display = 'block';
+    container.appendChild(vid);
+
+    return () => {
+      // Move back to hidden and hide
+      vid.className = 'hidden';
+      vid.style.display = '';
+      document.getElementById('root')?.querySelector('.bg-dark-950')?.appendChild(vid);
+    };
+  }, [videoRef]);
+
   // Auto-hide controls
   useEffect(() => {
-    if (showControls && !showRelatedList) {
+    if (showControls && !showRelatedList && !isSeeking) {
       controlsTimeoutRef.current = setTimeout(() => {
         setShowControls(false);
       }, 4000);
@@ -32,7 +69,7 @@ export default function VideoPlayer() {
     return () => {
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     };
-  }, [showControls, showRelatedList]);
+  }, [showControls, showRelatedList, isSeeking]);
 
   // Compute next video
   useEffect(() => {
@@ -41,15 +78,30 @@ export default function VideoPlayer() {
     }
   }, [currentVideo]);
 
-  const startAutoplayCountdown = useCallback(() => {
-    if (!nextVideo) return;
+  // Auto-play next video on end
+  useEffect(() => {
+    const vid = videoRef.current;
+    if (!vid) return;
+    const onEnded = () => {
+      const next = currentVideo ? getNextVideo(currentVideo) : null;
+      if (next) {
+        startAutoplayCountdown(next);
+      }
+    };
+    vid.addEventListener('ended', onEnded);
+    return () => vid.removeEventListener('ended', onEnded);
+  }, [currentVideo, videoRef]);
+
+  const startAutoplayCountdown = useCallback((next?: Video | null) => {
+    const targetVideo = next || nextVideo;
+    if (!targetVideo) return;
     setShowAutoplayCountdown(true);
     setAutoplayCountdown(5);
     countdownRef.current = setInterval(() => {
       setAutoplayCountdown((prev) => {
         if (prev <= 1) {
           if (countdownRef.current) clearInterval(countdownRef.current);
-          playVideo(nextVideo);
+          playVideo(targetVideo);
           setShowAutoplayCountdown(false);
           return 5;
         }
@@ -70,13 +122,28 @@ export default function VideoPlayer() {
     };
   }, []);
 
+  const resetControlsTimer = useCallback(() => {
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    setShowControls(true);
+  }, []);
+
   const handleTap = () => {
-    if (!isDragging) setShowControls((prev) => !prev);
+    if (!isDragging) {
+      setShowControls((prev) => !prev);
+    }
   };
 
-  const showSkipFeedbackFn = (direction: 'forward' | 'backward') => {
+  const handleSkip = (direction: 'forward' | 'backward') => {
+    if (direction === 'forward') skipForward();
+    else skipBackward();
     setSkipFeedback(direction);
+    resetControlsTimer();
     setTimeout(() => setSkipFeedback(null), 700);
+  };
+
+  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = (parseFloat(e.target.value) / 100) * duration;
+    seekTo(newTime);
   };
 
   const handleDragEnd = (_: unknown, info: PanInfo) => {
@@ -92,7 +159,6 @@ export default function VideoPlayer() {
   };
 
   if (!currentVideo) return null;
-  const embedUrl = getYoutubeEmbedUrl(currentVideo);
 
   return (
     <motion.div
@@ -104,7 +170,7 @@ export default function VideoPlayer() {
     >
       {/* ── Video Area ── */}
       <motion.div
-        className="relative w-full"
+        className="relative w-full bg-black"
         style={{ height: showRelatedList ? '35vh' : '100vh', transition: 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
         drag="y"
         dragConstraints={{ top: 0, bottom: 0 }}
@@ -112,18 +178,8 @@ export default function VideoPlayer() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        {/* YouTube Iframe */}
-        <div className="absolute inset-0 bg-black">
-          <iframe
-            key={currentVideo.slug}
-            src={embedUrl}
-            className="w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            style={{ border: 'none' }}
-            title={currentVideo.title}
-          />
-        </div>
+        {/* Native video element container */}
+        <div ref={videoContainerRef} className="absolute inset-0 bg-black flex items-center justify-center" />
 
         {/* ── Controls Overlay ── */}
         <AnimatePresence>
@@ -139,7 +195,7 @@ export default function VideoPlayer() {
               {/* Gradient scrim */}
               <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-black/80 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-black/80 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-black/90 to-transparent" />
               </div>
 
               {/* ─ Top bar ─ */}
@@ -173,9 +229,9 @@ export default function VideoPlayer() {
 
               {/* ─ Center controls ─ */}
               <div className="absolute inset-0 flex items-center justify-center gap-16 z-20" onClick={(e) => e.stopPropagation()}>
-                {/* Skip backward */}
+                {/* Skip backward -10s */}
                 <button
-                  onClick={() => showSkipFeedbackFn('backward')}
+                  onClick={() => handleSkip('backward')}
                   className="group flex flex-col items-center gap-1.5"
                 >
                   <div className="w-14 h-14 rounded-2xl glass-strong flex items-center justify-center hover:bg-white/15 transition-all active:scale-75 duration-200 group-active:shadow-accent">
@@ -186,20 +242,25 @@ export default function VideoPlayer() {
                   <span className="text-[10px] text-white/40 font-bold">-10s</span>
                 </button>
 
-                {/* Play indicator */}
-                <div className="relative">
-                  <div className="w-[76px] h-[76px] rounded-full bg-white/10 backdrop-blur-xl flex items-center justify-center border border-white/15 shadow-[0_0_30px_rgba(255,255,255,0.08)]">
-                    <svg className="w-9 h-9 text-white ml-1 drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
+                {/* Play / Pause toggle */}
+                <button onClick={togglePlayPause} className="relative group">
+                  <div className="w-[76px] h-[76px] rounded-full bg-white/10 backdrop-blur-xl flex items-center justify-center border border-white/15 shadow-[0_0_30px_rgba(255,255,255,0.08)] transition-all group-hover:bg-white/15 group-active:scale-90">
+                    {isPlaying ? (
+                      <svg className="w-9 h-9 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-9 h-9 text-white ml-1 drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    )}
                   </div>
-                  {/* Glow ring */}
-                  <div className="absolute -inset-2 rounded-full border border-white/[0.06] animate-pulse" />
-                </div>
+                  <div className="absolute -inset-2 rounded-full border border-white/[0.06] animate-pulse pointer-events-none" />
+                </button>
 
-                {/* Skip forward */}
+                {/* Skip forward +10s */}
                 <button
-                  onClick={() => showSkipFeedbackFn('forward')}
+                  onClick={() => handleSkip('forward')}
                   className="group flex flex-col items-center gap-1.5"
                 >
                   <div className="w-14 h-14 rounded-2xl glass-strong flex items-center justify-center hover:bg-white/15 transition-all active:scale-75 duration-200 group-active:shadow-accent">
@@ -211,10 +272,55 @@ export default function VideoPlayer() {
                 </button>
               </div>
 
-              {/* ─ Bottom bar ─ */}
-              <div className="absolute bottom-0 left-0 right-0 px-4 pb-[env(safe-area-inset-bottom,20px)] z-20" onClick={(e) => e.stopPropagation()}>
+              {/* ─ Bottom bar: seekable progress + time + action buttons ─ */}
+              <div className="absolute bottom-0 left-0 right-0 px-4 pb-[env(safe-area-inset-bottom,16px)] z-20" onClick={(e) => e.stopPropagation()}>
+                {/* Progress bar area */}
+                <div className="mb-3">
+                  {/* Time row */}
+                  <div className="flex items-center justify-between mb-1.5 px-0.5">
+                    <span className="text-[11px] font-bold text-white/70 tabular-nums">{formatTime(currentTime)}</span>
+                    <span className="text-[11px] font-bold text-white/40 tabular-nums">{formatTime(duration)}</span>
+                  </div>
+
+                  {/* Seekable progress bar */}
+                  <div className="relative h-6 flex items-center group/seek">
+                    {/* Track background */}
+                    <div className="absolute left-0 right-0 h-1 group-hover/seek:h-1.5 rounded-full bg-white/10 transition-all duration-200 overflow-hidden">
+                      {/* Buffered */}
+                      <div
+                        className="absolute left-0 top-0 bottom-0 bg-white/15 rounded-full"
+                        style={{ width: `${bufferedProgress}%` }}
+                      />
+                      {/* Played */}
+                      <div
+                        className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-accent to-accent-hover rounded-full"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                    {/* Range input (transparent, overlaid for interaction) */}
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={progress}
+                      onChange={handleSeekChange}
+                      onMouseDown={() => setIsSeeking(true)}
+                      onMouseUp={() => setIsSeeking(false)}
+                      onTouchStart={() => setIsSeeking(true)}
+                      onTouchEnd={() => setIsSeeking(false)}
+                      className="absolute inset-0 w-full opacity-0 cursor-pointer z-10"
+                    />
+                    {/* Seek thumb (visual) */}
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-accent shadow-[0_0_8px_rgba(255,59,59,0.5)] opacity-0 group-hover/seek:opacity-100 scale-75 group-hover/seek:scale-100 transition-all duration-200 pointer-events-none"
+                      style={{ left: `calc(${progress}% - 7px)` }}
+                    />
+                  </div>
+                </div>
+
                 {/* Action pills */}
-                <div className="flex items-center justify-center gap-2.5 mb-5">
+                <div className="flex items-center justify-center gap-2.5 mb-4">
                   <button
                     onClick={toggleRelatedList}
                     className="flex items-center gap-2 text-xs font-semibold text-white/90 glass-strong px-5 py-2.5 rounded-xl hover:bg-white/15 transition-all active:scale-95 shadow-lg"
@@ -230,7 +336,7 @@ export default function VideoPlayer() {
 
                   {nextVideo && (
                     <button
-                      onClick={startAutoplayCountdown}
+                      onClick={() => startAutoplayCountdown()}
                       className="flex items-center gap-2 text-xs font-semibold text-white/90 bg-accent/20 border border-accent/20 backdrop-blur-xl px-5 py-2.5 rounded-xl hover:bg-accent/30 transition-all active:scale-95 shadow-lg"
                     >
                       <svg className="w-4 h-4 text-accent" fill="currentColor" viewBox="0 0 24 24">
@@ -272,9 +378,9 @@ export default function VideoPlayer() {
           )}
         </AnimatePresence>
 
-        {/* Double-tap areas */}
-        <div className="absolute left-0 top-0 bottom-0 w-1/3 z-[5]" onDoubleClick={() => showSkipFeedbackFn('backward')} />
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 z-[5]" onDoubleClick={() => showSkipFeedbackFn('forward')} />
+        {/* Double-tap areas for skip */}
+        <div className="absolute left-0 top-0 bottom-0 w-1/3 z-[5]" onDoubleClick={() => handleSkip('backward')} />
+        <div className="absolute right-0 top-0 bottom-0 w-1/3 z-[5]" onDoubleClick={() => handleSkip('forward')} />
 
         {/* ── Autoplay countdown ── */}
         <AnimatePresence>
@@ -288,7 +394,6 @@ export default function VideoPlayer() {
             >
               <p className="text-accent text-[10px] font-bold uppercase tracking-[0.2em] mb-3">Up Next</p>
 
-              {/* Next video preview card */}
               <div className="glass-strong rounded-2xl p-4 mx-8 mb-6 max-w-sm">
                 <div className="flex gap-3 items-center">
                   <img src={nextVideo.thumbnailUrl} alt="" className="w-20 h-12 rounded-lg object-cover flex-shrink-0" />
@@ -299,7 +404,6 @@ export default function VideoPlayer() {
                 </div>
               </div>
 
-              {/* Countdown ring */}
               <div className="relative mb-8">
                 <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
                   <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
@@ -341,7 +445,7 @@ export default function VideoPlayer() {
           )}
         </AnimatePresence>
 
-        {/* Tap area when hidden */}
+        {/* Tap area when controls hidden */}
         {!showControls && <div className="absolute inset-0 z-[5]" onClick={handleTap} />}
       </motion.div>
 
@@ -356,12 +460,10 @@ export default function VideoPlayer() {
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 280 }}
           >
-            {/* Handle */}
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1.5 bg-white/10 rounded-full" />
             </div>
 
-            {/* Header */}
             <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.04]">
               <div>
                 <h3 className="text-base font-bold text-white">Related Videos</h3>
@@ -382,7 +484,6 @@ export default function VideoPlayer() {
               </button>
             </div>
 
-            {/* List */}
             <div className="overflow-y-auto overscroll-contain px-3 py-2" style={{ height: 'calc(65vh - 78px)' }}>
               {relatedVideos.map((video, idx) => (
                 <motion.div

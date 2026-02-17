@@ -7,6 +7,7 @@ export interface Video {
   duration?: string;
   categorySlug: string;
   categoryName: string;
+  mp4Url: string;
 }
 
 export interface Category {

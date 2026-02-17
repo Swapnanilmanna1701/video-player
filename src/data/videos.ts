@@ -1,5 +1,19 @@
 import type { CategoryGroup, Video } from '../types';
 
+// Public domain / sample MP4 videos for native playback
+const SAMPLE_MP4S = [
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
+];
+
 const rawData = {
   categories: [
     {
@@ -235,24 +249,31 @@ const rawData = {
   ],
 };
 
+// Flatten all contents with an index for MP4 assignment
+let _globalIndex = 0;
+
 // Process raw data into flat video list with category info
 export function getCategories(): CategoryGroup[] {
+  _globalIndex = 0;
   return rawData.categories.map((cat) => ({
     category: cat.category,
     contents: cat.contents.map((content) => ({
       ...content,
       categorySlug: cat.category.slug,
       categoryName: cat.category.name,
+      mp4Url: SAMPLE_MP4S[_globalIndex++ % SAMPLE_MP4S.length],
     })),
   }));
 }
 
 export function getAllVideos(): Video[] {
+  let idx = 0;
   return rawData.categories.flatMap((cat) =>
     cat.contents.map((content) => ({
       ...content,
       categorySlug: cat.category.slug,
       categoryName: cat.category.name,
+      mp4Url: SAMPLE_MP4S[idx++ % SAMPLE_MP4S.length],
     }))
   );
 }
@@ -270,7 +291,10 @@ export function getNextVideo(currentVideo: Video): Video | null {
   return null;
 }
 
-export function getYoutubeEmbedUrl(video: Video): string {
-  const baseSlug = video.slug.split('?')[0];
-  return `https://www.youtube.com/embed/${baseSlug}?autoplay=1&enablejsapi=1&modestbranding=1&rel=0&playsinline=1`;
+/** Format seconds into MM:SS */
+export function formatTime(seconds: number): string {
+  if (!isFinite(seconds) || seconds < 0) return '0:00';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
 }
