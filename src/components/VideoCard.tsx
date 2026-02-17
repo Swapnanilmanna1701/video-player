@@ -18,11 +18,10 @@ function VideoCard({ video, compact = false, isActive = false }: VideoCardProps)
     playVideo(video);
   };
 
-  // Generate consistent pseudo-random views/time for each video
-  const viewCount = useMemoViewCount(video.slug);
-  const timeAgo = useMemoTimeAgo(video.slug);
+  const viewCount = getViewCount(video.slug);
+  const timeAgo = getTimeAgo(video.slug);
 
-  /* ─── Compact variant (related videos in player) ─── */
+  /* ─── Compact variant (related videos in player sidebar) ─── */
   if (compact) {
     return (
       <button
@@ -31,8 +30,8 @@ function VideoCard({ video, compact = false, isActive = false }: VideoCardProps)
           isActive ? 'bg-yt-hover' : 'hover:bg-yt-hover'
         }`}
       >
-        {/* Thumbnail */}
-        <div className="relative w-[168px] h-[94px] flex-shrink-0 rounded-lg overflow-hidden bg-yt-card">
+        {/* Thumbnail — responsive width */}
+        <div className="relative w-[140px] sm:w-[168px] aspect-video flex-shrink-0 rounded-lg overflow-hidden bg-yt-card">
           {!imageError ? (
             <img
               src={video.thumbnailUrl}
@@ -49,7 +48,6 @@ function VideoCard({ video, compact = false, isActive = false }: VideoCardProps)
               </svg>
             </div>
           )}
-          {/* Duration badge */}
           <div className="absolute bottom-1 right-1">
             <span className="text-[11px] font-medium bg-black/80 text-white px-1 py-0.5 rounded">
               {video.duration || '0:00'}
@@ -68,9 +66,7 @@ function VideoCard({ video, compact = false, isActive = false }: VideoCardProps)
 
         {/* Info */}
         <div className="flex-1 min-w-0 py-0.5">
-          <p className={`text-[13px] font-medium leading-snug line-clamp-2 ${
-            isActive ? 'text-yt-text' : 'text-yt-text'
-          }`}>
+          <p className="text-[13px] font-medium leading-snug line-clamp-2 text-yt-text">
             {video.title}
           </p>
           <p className="text-[11px] text-yt-text-muted mt-1 leading-tight">
@@ -84,11 +80,11 @@ function VideoCard({ video, compact = false, isActive = false }: VideoCardProps)
     );
   }
 
-  /* ─── Full card (YouTube mobile home feed) ─── */
+  /* ─── Full card (YouTube grid — mobile + desktop) ─── */
   return (
-    <button onClick={handleClick} className="w-full text-left group mb-3 sm:mb-4">
-      {/* Edge-to-edge thumbnail */}
-      <div className="relative w-full aspect-video bg-yt-card overflow-hidden">
+    <button onClick={handleClick} className="w-full text-left group">
+      {/* Thumbnail — edge-to-edge on mobile, rounded on sm+ */}
+      <div className="relative w-full aspect-video bg-yt-card overflow-hidden sm:rounded-xl">
         {!imageError ? (
           <img
             src={video.thumbnailUrl}
@@ -114,26 +110,20 @@ function VideoCard({ video, compact = false, isActive = false }: VideoCardProps)
         )}
 
         {/* Duration badge */}
-        <div className="absolute bottom-2 right-2">
-          <span className="text-[12px] font-medium bg-black/80 text-white px-1 py-0.5 rounded">
+        <div className="absolute bottom-1.5 right-1.5 sm:bottom-2 sm:right-2">
+          <span className="text-[11px] sm:text-[12px] font-medium bg-black/80 text-white px-1 py-0.5 rounded">
             {video.duration || '0:00'}
           </span>
         </div>
 
-        {/* Hover play overlay */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/10">
-          <div className="w-16 h-16 rounded-full bg-black/60 flex items-center justify-center">
-            <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </div>
-        </div>
+        {/* Hover overlay */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200" />
       </div>
 
       {/* Video info row */}
-      <div className="flex gap-3 px-3 sm:px-4 pt-3 pb-1">
+      <div className="flex gap-3 px-3 sm:px-0 pt-2.5 sm:pt-3 pb-1">
         {/* Channel avatar */}
-        <div className="w-9 h-9 rounded-full bg-yt-chip flex-shrink-0 flex items-center justify-center overflow-hidden mt-0.5">
+        <div className="w-9 h-9 rounded-full bg-yt-chip flex-shrink-0 flex items-center justify-center overflow-hidden">
           {video.thumbnailUrl ? (
             <img
               src={video.thumbnailUrl}
@@ -154,13 +144,16 @@ function VideoCard({ video, compact = false, isActive = false }: VideoCardProps)
             {video.title}
           </h3>
           <p className="text-xs text-yt-text-muted mt-1 leading-tight">
-            {video.categoryName} &middot; {viewCount} views &middot; {timeAgo}
+            {video.categoryName}
+          </p>
+          <p className="text-xs text-yt-text-muted leading-tight">
+            {viewCount} views &middot; {timeAgo}
           </p>
         </div>
 
         {/* Three-dot menu */}
         <button
-          className="w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5"
+          className="w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 sm:opacity-100 transition-opacity"
           onClick={(e) => e.stopPropagation()}
         >
           <svg className="w-5 h-5 text-yt-text-secondary" fill="currentColor" viewBox="0 0 24 24">
@@ -174,7 +167,7 @@ function VideoCard({ video, compact = false, isActive = false }: VideoCardProps)
   );
 }
 
-// Pseudo-random but deterministic values based on slug hash
+// Deterministic pseudo-random values from slug hash
 function hashCode(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -183,14 +176,13 @@ function hashCode(str: string): number {
   return Math.abs(hash);
 }
 
-function useMemoViewCount(slug: string): string {
+function getViewCount(slug: string): string {
   const h = hashCode(slug);
-  const num = (h % 900) + 100; // 100-999
-  const suffix = h % 3 === 0 ? 'K' : h % 3 === 1 ? 'K' : 'K';
-  return `${num}${suffix}`;
+  const num = (h % 900) + 100;
+  return `${num}K`;
 }
 
-function useMemoTimeAgo(slug: string): string {
+function getTimeAgo(slug: string): string {
   const h = hashCode(slug);
   const units = ['hours', 'days', 'weeks', 'months'];
   const unit = units[h % units.length];
