@@ -5,6 +5,7 @@ import type { Video } from '../types';
 export interface PlayerContextType {
   currentVideo: Video | null;
   isMinimized: boolean;
+  isPip: boolean;
   isPlaying: boolean;
   videoRef: RefObject<HTMLVideoElement | null>;
   currentTime: number;
@@ -13,6 +14,8 @@ export interface PlayerContextType {
   playVideo: (video: Video) => void;
   minimizePlayer: () => void;
   maximizePlayer: () => void;
+  enterPip: () => void;
+  exitPip: () => void;
   closePlayer: () => void;
   togglePlayPause: () => void;
   setIsPlaying: (playing: boolean) => void;

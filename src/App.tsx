@@ -6,10 +6,12 @@ import type { PlayerContextType } from './store/playerStore';
 import HomePage from './components/HomePage';
 import VideoPlayer from './components/VideoPlayer';
 import MiniPlayer from './components/MiniPlayer';
+import PipPlayer from './components/PipPlayer';
 
 function App() {
   const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isPip, setIsPip] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -55,6 +57,7 @@ function App() {
   const playVideo = useCallback((video: Video) => {
     setCurrentVideo(video);
     setIsMinimized(false);
+    setIsPip(false);
     setIsPlaying(true);
     setCurrentTime(0);
     setDuration(0);
@@ -64,9 +67,21 @@ function App() {
 
   const minimizePlayer = useCallback(() => {
     setIsMinimized(true);
+    setIsPip(false);
   }, []);
 
   const maximizePlayer = useCallback(() => {
+    setIsMinimized(false);
+    setIsPip(false);
+  }, []);
+
+  const enterPip = useCallback(() => {
+    setIsPip(true);
+    setIsMinimized(false);
+  }, []);
+
+  const exitPip = useCallback(() => {
+    setIsPip(false);
     setIsMinimized(false);
   }, []);
 
@@ -79,6 +94,7 @@ function App() {
     }
     setCurrentVideo(null);
     setIsMinimized(false);
+    setIsPip(false);
     setIsPlaying(false);
     setCurrentTime(0);
     setDuration(0);
@@ -116,6 +132,7 @@ function App() {
     () => ({
       currentVideo,
       isMinimized,
+      isPip,
       isPlaying,
       videoRef,
       currentTime,
@@ -124,6 +141,8 @@ function App() {
       playVideo,
       minimizePlayer,
       maximizePlayer,
+      enterPip,
+      exitPip,
       closePlayer,
       togglePlayPause,
       setIsPlaying,
@@ -131,7 +150,7 @@ function App() {
       skipForward,
       skipBackward,
     }),
-    [currentVideo, isMinimized, isPlaying, currentTime, duration, buffered, playVideo, minimizePlayer, maximizePlayer, closePlayer, togglePlayPause, seekTo, skipForward, skipBackward]
+    [currentVideo, isMinimized, isPip, isPlaying, currentTime, duration, buffered, playVideo, minimizePlayer, maximizePlayer, enterPip, exitPip, closePlayer, togglePlayPause, seekTo, skipForward, skipBackward]
   );
 
   return (
@@ -148,7 +167,7 @@ function App() {
         <HomePage />
 
         <AnimatePresence>
-          {currentVideo && !isMinimized && (
+          {currentVideo && !isMinimized && !isPip && (
             <VideoPlayer key="video-player" />
           )}
         </AnimatePresence>
@@ -156,6 +175,12 @@ function App() {
         <AnimatePresence>
           {currentVideo && isMinimized && (
             <MiniPlayer key="mini-player" />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {currentVideo && isPip && (
+            <PipPlayer key="pip-player" />
           )}
         </AnimatePresence>
       </div>

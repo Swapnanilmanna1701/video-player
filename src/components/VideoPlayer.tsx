@@ -39,7 +39,7 @@ interface Toast { id: number; message: string; }
 export default function VideoPlayer() {
   const {
     currentVideo, isPlaying, videoRef, currentTime, duration, buffered,
-    minimizePlayer, closePlayer, playVideo, togglePlayPause, seekTo, skipForward, skipBackward,
+    minimizePlayer, closePlayer, playVideo, togglePlayPause, seekTo, skipForward, skipBackward, enterPip,
   } = usePlayer();
 
   const [showControls, setShowControls] = useState(true);
@@ -233,14 +233,27 @@ export default function VideoPlayer() {
             </div>
 
             {/* Top bar */}
-            <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-2 sm:px-4 pt-2 sm:pt-3 z-20">
-              <button onClick={(e) => { e.stopPropagation(); minimizePlayer(); }} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors">
+            <div className="absolute top-0 left-0 right-0 flex items-center gap-1 sm:gap-2 px-2 sm:px-4 pt-2 sm:pt-3 z-20">
+              {/* Back to home (PiP) */}
+              <button onClick={(e) => { e.stopPropagation(); enterPip(); }} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors" title="Back to home (Picture-in-Picture)">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              {/* Minimize */}
+              <button onClick={(e) => { e.stopPropagation(); minimizePlayer(); }} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors" title="Minimize">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
               </button>
               <div className="flex-1 min-w-0 text-center">
                 <p className="text-[13px] sm:text-sm font-medium text-white line-clamp-1 drop-shadow">{currentVideo.title}</p>
               </div>
-              <button onClick={(e) => { e.stopPropagation(); handleClose(); }} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors">
+              {/* PiP icon */}
+              <button onClick={(e) => { e.stopPropagation(); enterPip(); }} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors" title="Picture-in-Picture">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                  <rect x="2" y="3" width="20" height="14" rx="2" />
+                  <rect x="11" y="9" width="9" height="6" rx="1" fill="currentColor" />
+                </svg>
+              </button>
+              {/* Close */}
+              <button onClick={(e) => { e.stopPropagation(); handleClose(); }} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors" title="Close">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
