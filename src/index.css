@@ -1,0 +1,222 @@
+@import "tailwindcss";
+
+@theme {
+  --color-dark-950: #080808;
+  --color-dark-900: #0f0f0f;
+  --color-dark-800: #181818;
+  --color-dark-700: #212121;
+  --color-dark-600: #2d2d2d;
+  --color-dark-500: #383838;
+  --color-dark-400: #505050;
+  --color-accent: #ff3b3b;
+  --color-accent-hover: #ff5c5c;
+  --color-accent-glow: #ff3b3b40;
+  --color-accent-deep: #cc2020;
+  --color-purple: #a855f7;
+  --color-blue: #3b82f6;
+  --color-emerald: #10b981;
+  --color-amber: #f59e0b;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--color-dark-950);
+  color: #ffffff;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ── Range input ── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ff3b3b;
+  margin-top: -6px;
+  box-shadow: 0 0 8px rgba(255, 59, 59, 0.5);
+}
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ff3b3b;
+  border: none;
+  box-shadow: 0 0 8px rgba(255, 59, 59, 0.5);
+}
+
+/* ── Keyframes ── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { transform: translateY(24px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes ripple {
+  0%   { transform: scale(0);   opacity: 0.6; }
+  100% { transform: scale(2.5); opacity: 0;   }
+}
+@keyframes countdownPulse {
+  0%, 100% { transform: scale(1);   }
+  50%      { transform: scale(1.08); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0);    }
+  50%      { transform: translateY(-6px); }
+}
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(255,59,59,0.3); }
+  50%      { box-shadow: 0 0 20px rgba(255,59,59,0.6); }
+}
+@keyframes barBounce1 {
+  0%, 100% { height: 6px;  }
+  50%      { height: 16px; }
+}
+@keyframes barBounce2 {
+  0%, 100% { height: 12px; }
+  50%      { height: 4px;  }
+}
+@keyframes barBounce3 {
+  0%, 100% { height: 8px;  }
+  50%      { height: 14px; }
+}
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%;   }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%;   }
+}
+
+.animate-fade-in       { animation: fadeIn 0.4s ease-out both; }
+.animate-slide-up      { animation: slideUp 0.5s ease-out both; }
+.animate-shimmer       { animation: shimmer 2s ease-in-out infinite; background-size: 200% 100%; }
+.animate-ripple        { animation: ripple 0.6s ease-out forwards; }
+.animate-countdown     { animation: countdownPulse 1s ease-in-out infinite; }
+.animate-float         { animation: float 3s ease-in-out infinite; }
+.animate-glow          { animation: glow 2s ease-in-out infinite; }
+.animate-bar1          { animation: barBounce1 0.8s ease-in-out infinite; }
+.animate-bar2          { animation: barBounce2 0.8s ease-in-out 0.2s infinite; }
+.animate-bar3          { animation: barBounce3 0.8s ease-in-out 0.4s infinite; }
+.animate-gradient      { animation: gradientShift 4s ease infinite; background-size: 200% 200%; }
+
+/* ── Utility classes ── */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Glass card base */
+.glass {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.glass-strong {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Card hover shine */
+.card-shine {
+  position: relative;
+  overflow: hidden;
+}
+.card-shine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255,255,255,0.03) 45%,
+    rgba(255,255,255,0.06) 50%,
+    rgba(255,255,255,0.03) 55%,
+    transparent 60%
+  );
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+.card-shine:hover::after {
+  transform: translateX(100%);
+}
+
+/* Accent glow shadow */
+.shadow-accent {
+  box-shadow: 0 4px 24px rgba(255, 59, 59, 0.25);
+}
+.shadow-accent-lg {
+  box-shadow: 0 8px 40px rgba(255, 59, 59, 0.35);
+}
+
+/* Gradient text */
+.text-gradient {
+  background: linear-gradient(135deg, #ff3b3b 0%, #ff8c3b 50%, #ff3b3b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
